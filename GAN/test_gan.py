@@ -49,30 +49,11 @@ import plotly.graph_objs as go
 import plotly.offline as py
 import plotly.express as px
 
-from google.colab import drive
-drive.mount('/content/gdrive/')
-
-my_local_drive='/content/gdrive/My Drive/M2/Proj_img'
-sys.path.append(my_local_drive)
-
-import gspread
-from google.colab import auth
-from oauth2client.client import GoogleCredentials
-import pandas as pd
-from google.colab import auth
-auth.authenticate_user()
-import gspread
-from google.auth import default
-creds, _ = default()
-
-gc = gspread.authorize(creds)
-
 """Début CycleGan ici"""
 
 #!pip install git+https://github.com/tensorflow/examples.git
 
 import tensorflow as tf
-import tensorflow_datasets as tfds
 from tensorflow_examples.models.pix2pix import pix2pix
 
 import os
@@ -84,17 +65,17 @@ AUTOTUNE = tf.data.AUTOTUNE
 
 """Pipeline d'entrée"""
 
-path_hommes = '/content/gdrive/My Drive/M2/Proj_img/dataset/hommes'
-path_femmes = '/content/gdrive/My Drive/M2/Proj_img/dataset/femmes'
-path_test_hommes = '/content/gdrive/My Drive/M2/Proj_img/dataset/testhommes'
-path_test_femmes = '/content/gdrive/My Drive/M2/Proj_img/dataset/testfemmes'
+path_hommes = 'dataset/hommes'
+path_femmes = 'dataset/femmes'
+path_test_hommes = 'dataset/testhommes'
+path_test_femmes = 'dataset/testfemmes'
 
 train_hommes = tf.data.Dataset.list_files(path_hommes + '/*.jpg').map(tf.io.read_file).map(tf.image.decode_jpeg)
 train_femmes = tf.data.Dataset.list_files(path_femmes + '/*.jpg').map(tf.io.read_file).map(tf.image.decode_jpeg)
 test_hommes = tf.data.Dataset.list_files(path_test_hommes + '/*.jpg').map(tf.io.read_file).map(tf.image.decode_jpeg)
 test_femmes = tf.data.Dataset.list_files(path_test_femmes + '/*.jpg').map(tf.io.read_file).map(tf.image.decode_jpeg)
 
-BUFFER_SIZE = 210
+BUFFER_SIZE = 1000
 BATCH_SIZE = 1
 IMG_WIDTH = 256
 IMG_HEIGHT = 256
