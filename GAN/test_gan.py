@@ -9,54 +9,10 @@ Original file is located at
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
-# librairies générales
-import pickle # pour charger le modèle
-import pandas as pd
-import string
-import unicodedata
-import wordcloud
-from random import randint
-import re
-from tabulate import tabulate
-import time
-import numpy as np
-import base64
-import sys
-# librairie affichage
-import matplotlib.pyplot as plt
-import seaborn as sns
-from mlxtend.plotting import plot_decision_regions
-import matplotlib.gridspec as gridspec
-import itertools
-# librairies scikit learn
-from sklearn import datasets
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import classification_report
-from sklearn.model_selection import train_test_split
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.pipeline import Pipeline
-from sklearn.svm import SVC
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-from sklearn.linear_model import LogisticRegression
-from sklearn.naive_bayes import GaussianNB
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.svm import LinearSVC
-
-#Ploting
-import plotly.graph_objs as go
-import plotly.offline as py
-import plotly.express as px
-
-"""Début CycleGan ici"""
-
-#!pip install git+https://github.com/tensorflow/examples.git
 
 import tensorflow as tf
 from tensorflow_examples.models.pix2pix import pix2pix
 
-import os
 import time
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
@@ -179,13 +135,6 @@ generator_f = pix2pix.unet_generator(OUTPUT_CHANNELS, norm_type='instancenorm')
 discriminator_x = pix2pix.discriminator(norm_type='instancenorm', target=False)
 discriminator_y = pix2pix.discriminator(norm_type='instancenorm', target=False)
 print("Shape before concatenation:", sample_homme.shape, sample_femme.shape)
-
-# Redimensionner les images à la taille attendue par le générateur
-#sample_homme_resized = tf.image.resize(sample_homme, [256, 256]) #taille attendue -> 256
-#sample_femme_resized = tf.image.resize(sample_femme, [256, 256])
-
-#to_femme = generator_g(sample_homme_resized)
-#to_homme = generator_f(sample_femme_resized)
 
 to_femme = generator_g(sample_homme)
 to_homme = generator_f(sample_femme)
