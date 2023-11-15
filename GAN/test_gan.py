@@ -77,21 +77,45 @@ def preprocess_image_test(image):
     return image
 
 
-train_hommes = train_hommes.cache().map(
-    preprocess_image_train, num_parallel_calls=AUTOTUNE).shuffle(
-    BUFFER_SIZE).batch(BATCH_SIZE)
+train_hommes = (tf.data.Dataset.list_files(path_hommes + '/*.jpg')
+                .map(tf.io.read_file)
+                .map(tf.image.decode_jpeg)
+                .map(preprocess_image_train, num_parallel_calls=AUTOTUNE)
+                .take(BUFFER_SIZE)  # Take the number of items you need
+                .cache()  # Cache those items
+                .shuffle(BUFFER_SIZE)
+                .batch(BATCH_SIZE)
+                .repeat())
 
-train_femmes = train_femmes.cache().map(
-    preprocess_image_train, num_parallel_calls=AUTOTUNE).shuffle(
-    BUFFER_SIZE).batch(BATCH_SIZE)
+train_femmes = (tf.data.Dataset.list_files(path_femmes + '/*.jpg')
+                .map(tf.io.read_file)
+                .map(tf.image.decode_jpeg)
+                .map(preprocess_image_train, num_parallel_calls=AUTOTUNE)
+                .take(BUFFER_SIZE)  # Take the number of items you need
+                .cache()  # Cache those items
+                .shuffle(BUFFER_SIZE)
+                .batch(BATCH_SIZE)
+                .repeat())
 
-test_hommes = test_hommes.map(
-    preprocess_image_test, num_parallel_calls=AUTOTUNE).cache().shuffle(
-    BUFFER_SIZE).batch(BATCH_SIZE)
+test_hommes =  (tf.data.Dataset.list_files(path_test_hommes + '/*.jpg')
+                .map(tf.io.read_file)
+                .map(tf.image.decode_jpeg)
+                .map(preprocess_image_train, num_parallel_calls=AUTOTUNE)
+                .take(BUFFER_SIZE)  # Take the number of items you need
+                .cache()  # Cache those items
+                .shuffle(BUFFER_SIZE)
+                .batch(BATCH_SIZE)
+                .repeat())
 
-test_femmes = test_femmes.map(
-    preprocess_image_test, num_parallel_calls=AUTOTUNE).cache().shuffle(
-    BUFFER_SIZE).batch(BATCH_SIZE)
+test_femmes =  (tf.data.Dataset.list_files(path_test_femmes + '/*.jpg')
+                .map(tf.io.read_file)
+                .map(tf.image.decode_jpeg)
+                .map(preprocess_image_train, num_parallel_calls=AUTOTUNE)
+                .take(BUFFER_SIZE)  # Take the number of items you need
+                .cache()  # Cache those items
+                .shuffle(BUFFER_SIZE)
+                .batch(BATCH_SIZE)
+                .repeat())
 
 sample_homme = next(iter(train_hommes))
 sample_femme = next(iter(train_femmes))
@@ -155,27 +179,16 @@ def resnet_block(input_layer, num_filters, kernel_size=3):
     x = tf.keras.activations.relu(x)
     return x
 
-def resnet_generator(input_shape=(128, 128, 3), num_blocks=9):
-    # Same as before
+def resnet_generator(input_shape=(128, 128, 3), num_blocks=6):
     inputs = layers.Input(shape=input_shape)
     x = inputs
 
-    # Downsampling
-    x = layers.Conv2D(64, kernel_size=7, strides=1, padding='same')(x)
-    x = layers.BatchNormalization()(x)
-    x = tf.keras.activations.relu(x)
-
-    # ResNet blocks
+    # Ajout des blocs ResNet
     for _ in range(num_blocks):
         x = resnet_block(x, 64)
 
-    # Upsampling
-    x = layers.Conv2DTranspose(64, kernel_size=3, strides=2, padding='same')(x)
-    x = layers.BatchNormalization()(x)
-    x = tf.keras.activations.relu(x)
-
-    # Final convolution
-    x = layers.Conv2D(3, kernel_size=7, strides=1, padding='same', activation='tanh')(x)
+    # Dernière couche convolutive pour atteindre le nombre de canaux désiré
+    x = layers.Conv2D(3, (3, 3), padding='same', activation='tanh')(x)
 
     return tf.keras.Model(inputs=inputs, outputs=x)
 
@@ -299,6 +312,8 @@ def train_step(real_x, real_y):
     with tf.GradientTape(persistent=True) as tape:
         # Generator G translates X -> Y
         # Generator F translates Y -> X.
+        real_x = tf.image.resize(real_x, [128, 128])
+        real_y = tf.image.resize(real_y, [128, 128])
 
         fake_y = generator_g(real_x, training=True)
         cycled_x = generator_f(fake_y, training=True)
