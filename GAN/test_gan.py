@@ -8,10 +8,12 @@ Original file is located at
 """
 
 import warnings
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 import tensorflow as tf
 from tensorflow_examples.models.pix2pix import pix2pix
+from keras import layers
 
 import time
 import matplotlib.pyplot as plt
@@ -33,41 +35,47 @@ test_femmes = tf.data.Dataset.list_files(path_test_femmes + '/*.jpg').map(tf.io.
 
 BUFFER_SIZE = 1000
 BATCH_SIZE = 1
-IMG_WIDTH = 256
-IMG_HEIGHT = 256
+IMG_WIDTH = 128
+IMG_HEIGHT = 128
+
 
 def random_crop(image):
-  cropped_image = tf.image.random_crop(
-      image, size=[IMG_HEIGHT, IMG_WIDTH, 3])
+    cropped_image = tf.image.random_crop(
+        image, size=[IMG_HEIGHT, IMG_WIDTH, 3])
 
-  return cropped_image
+    return cropped_image
+
 
 def normalize(image):
-  image = tf.cast(image, tf.float32)
-  image = (image / 127.5) - 1
-  return image
+    image = tf.cast(image, tf.float32)
+    image = (image / 127.5) - 1
+    return image
+
 
 def random_jitter(image):
-  # resizing to 286 x 286 x 3
-  image = tf.image.resize(image, [286, 286],
-                          method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+    # resizing to 286 x 286 x 3
+    image = tf.image.resize(image, [145, 145],
+                            method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
-  # randomly cropping to 256 x 256 x 3
-  image = random_crop(image)
+    # randomly cropping to 256 x 256 x 3
+    image = random_crop(image)
 
-  # random mirroring
-  image = tf.image.random_flip_left_right(image)
+    # random mirroring
+    image = tf.image.random_flip_left_right(image)
 
-  return image
+    return image
+
 
 def preprocess_image_train(image):
-  image = random_jitter(image)
-  image = normalize(image)
-  return image
+    image = random_jitter(image)
+    image = normalize(image)
+    return image
+
 
 def preprocess_image_test(image):
-  image = normalize(image)
-  return image
+    image = normalize(image)
+    return image
+
 
 train_hommes = train_hommes.cache().map(
     preprocess_image_train, num_parallel_calls=AUTOTUNE).shuffle(
@@ -87,8 +95,8 @@ test_femmes = test_femmes.map(
 
 sample_homme = next(iter(train_hommes))
 sample_femme = next(iter(train_femmes))
-sample_homme = tf.image.resize(sample_homme, [256, 256])
-sample_femme = tf.image.resize(sample_femme, [256, 256])
+sample_homme = tf.image.resize(sample_homme, [128, 128])
+sample_femme = tf.image.resize(sample_femme, [128, 128])
 
 plt.subplot(121)
 plt.title('Homme')
@@ -112,7 +120,7 @@ Importez le générateur et le discriminateur utilisés dans Pix2Pix via le pack
 
 L'architecture du modèle utilisée dans ce tutoriel est très similaire à celle utilisée dans pix2pix . Certaines des différences sont :
 
-    
+
 
 * Cyclegan utilise la normalisation  d'instance au lieu de la normalisation par lots .
 * L' article CycleGAN utilise un générateur basé sur resnet modifié. Ce tutoriel utilise un générateur unet modifié pour plus de simplicité.
@@ -129,8 +137,51 @@ Le discriminateur D_Y apprend à différencier l'image Y de l'image générée Y
 
 OUTPUT_CHANNELS = 3
 
-generator_g = pix2pix.unet_generator(OUTPUT_CHANNELS, norm_type='instancenorm')
-generator_f = pix2pix.unet_generator(OUTPUT_CHANNELS, norm_type='instancenorm')
+
+def resnet_block(input_layer, num_filters, kernel_size=3):
+    """A standard ResNet block."""
+    x = layers.Conv2D(num_filters, kernel_size, padding='same')(input_layer)
+    x = layers.BatchNormalization()(x)
+    x = tf.keras.activations.relu(x)
+
+    x = layers.Conv2D(num_filters, kernel_size, padding='same')(x)
+    x = layers.BatchNormalization()(x)
+
+    # Adapt input_layer to have the same number of filters
+    input_layer_matched = layers.Conv2D(num_filters, 1, padding='same')(input_layer)
+
+    # Adding a skip connection
+    x = layers.add([x, input_layer_matched])
+    x = tf.keras.activations.relu(x)
+    return x
+
+def resnet_generator(input_shape=(128, 128, 3), num_blocks=9):
+    # Same as before
+    inputs = layers.Input(shape=input_shape)
+    x = inputs
+
+    # Downsampling
+    x = layers.Conv2D(64, kernel_size=7, strides=1, padding='same')(x)
+    x = layers.BatchNormalization()(x)
+    x = tf.keras.activations.relu(x)
+
+    # ResNet blocks
+    for _ in range(num_blocks):
+        x = resnet_block(x, 64)
+
+    # Upsampling
+    x = layers.Conv2DTranspose(64, kernel_size=3, strides=2, padding='same')(x)
+    x = layers.BatchNormalization()(x)
+    x = tf.keras.activations.relu(x)
+
+    # Final convolution
+    x = layers.Conv2D(3, kernel_size=7, strides=1, padding='same', activation='tanh')(x)
+
+    return tf.keras.Model(inputs=inputs, outputs=x)
+
+
+generator_g = resnet_generator()
+generator_f = resnet_generator()
 
 discriminator_x = pix2pix.discriminator(norm_type='instancenorm', target=False)
 discriminator_y = pix2pix.discriminator(norm_type='instancenorm', target=False)
@@ -145,12 +196,12 @@ imgs = [sample_homme, to_femme, sample_femme, to_homme]
 title = ['Homme', 'To Femme', 'Femme', 'To Homme']
 
 for i in range(len(imgs)):
-  plt.subplot(2, 2, i+1)
-  plt.title(title[i])
-  if i % 2 == 0:
-    plt.imshow(imgs[i][0] * 0.5 + 0.5)
-  else:
-    plt.imshow(imgs[i][0] * 0.5 * contrast + 0.5)
+    plt.subplot(2, 2, i + 1)
+    plt.title(title[i])
+    if i % 2 == 0:
+        plt.imshow(imgs[i][0] * 0.5 + 0.5)
+    else:
+        plt.imshow(imgs[i][0] * 0.5 * contrast + 0.5)
 plt.show()
 
 plt.figure(figsize=(8, 8))
@@ -169,26 +220,32 @@ plt.show()
 
 LAMBDA = 10
 loss_obj = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+
+
 def discriminator_loss(real, generated):
-  real_loss = loss_obj(tf.ones_like(real), real)
+    real_loss = loss_obj(tf.ones_like(real), real)
 
-  generated_loss = loss_obj(tf.zeros_like(generated), generated)
+    generated_loss = loss_obj(tf.zeros_like(generated), generated)
 
-  total_disc_loss = real_loss + generated_loss
+    total_disc_loss = real_loss + generated_loss
 
-  return total_disc_loss * 0.5
+    return total_disc_loss * 0.5
+
 
 def generator_loss(generated):
-  return loss_obj(tf.ones_like(generated), generated)
+    return loss_obj(tf.ones_like(generated), generated)
+
 
 def calc_cycle_loss(real_image, cycled_image):
-  loss1 = tf.reduce_mean(tf.abs(real_image - cycled_image))
+    loss1 = tf.reduce_mean(tf.abs(real_image - cycled_image))
 
-  return LAMBDA * loss1
+    return LAMBDA * loss1
+
 
 def identity_loss(real_image, same_image):
-  loss = tf.reduce_mean(tf.abs(real_image - same_image))
-  return LAMBDA * 0.5 * loss
+    loss = tf.reduce_mean(tf.abs(real_image - same_image))
+    return LAMBDA * 0.5 * loss
+
 
 generator_g_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
 generator_f_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
@@ -211,116 +268,119 @@ ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
 
 # if a checkpoint exists, restore the latest checkpoint.
 if ckpt_manager.latest_checkpoint:
-  ckpt.restore(ckpt_manager.latest_checkpoint)
-  print ('Latest checkpoint restored!!')
+    ckpt.restore(ckpt_manager.latest_checkpoint)
+    print('Latest checkpoint restored!!')
 
 """Entrainement"""
 
-EPOCHS = 50
+EPOCHS = 100
+
 def generate_images(model, test_input):
-  prediction = model(test_input)
+    prediction = model(test_input)
 
-  plt.figure(figsize=(12, 12))
+    plt.figure(figsize=(12, 12))
 
-  display_list = [test_input[0], prediction[0]]
-  title = ['Input Image', 'Predicted Image']
+    display_list = [test_input[0], prediction[0]]
+    title = ['Input Image', 'Predicted Image']
 
-  for i in range(2):
-    plt.subplot(1, 2, i+1)
-    plt.title(title[i])
-    # getting the pixel values between [0, 1] to plot it.
-    plt.imshow(display_list[i] * 0.5 + 0.5)
-    plt.axis('off')
-  plt.show()
+    for i in range(2):
+        plt.subplot(1, 2, i + 1)
+        plt.title(title[i])
+        # getting the pixel values between [0, 1] to plot it.
+        plt.imshow(display_list[i] * 0.5 + 0.5)
+        plt.axis('off')
+    plt.show()
+
 
 @tf.function
 def train_step(real_x, real_y):
-  # persistent is set to True because the tape is used more than
-  # once to calculate the gradients.
-  with tf.GradientTape(persistent=True) as tape:
-    # Generator G translates X -> Y
-    # Generator F translates Y -> X.
+    # persistent is set to True because the tape is used more than
+    # once to calculate the gradients.
+    with tf.GradientTape(persistent=True) as tape:
+        # Generator G translates X -> Y
+        # Generator F translates Y -> X.
 
-    fake_y = generator_g(real_x, training=True)
-    cycled_x = generator_f(fake_y, training=True)
+        fake_y = generator_g(real_x, training=True)
+        cycled_x = generator_f(fake_y, training=True)
 
-    fake_x = generator_f(real_y, training=True)
-    cycled_y = generator_g(fake_x, training=True)
+        fake_x = generator_f(real_y, training=True)
+        cycled_y = generator_g(fake_x, training=True)
 
-    # same_x and same_y are used for identity loss.
-    same_x = generator_f(real_x, training=True)
-    same_y = generator_g(real_y, training=True)
+        # same_x and same_y are used for identity loss.
+        same_x = generator_f(real_x, training=True)
+        same_y = generator_g(real_y, training=True)
 
-    disc_real_x = discriminator_x(real_x, training=True)
-    disc_real_y = discriminator_y(real_y, training=True)
+        disc_real_x = discriminator_x(real_x, training=True)
+        disc_real_y = discriminator_y(real_y, training=True)
 
-    disc_fake_x = discriminator_x(fake_x, training=True)
-    disc_fake_y = discriminator_y(fake_y, training=True)
+        disc_fake_x = discriminator_x(fake_x, training=True)
+        disc_fake_y = discriminator_y(fake_y, training=True)
 
-    # calculate the loss
-    gen_g_loss = generator_loss(disc_fake_y)
-    gen_f_loss = generator_loss(disc_fake_x)
+        # calculate the loss
+        gen_g_loss = generator_loss(disc_fake_y)
+        gen_f_loss = generator_loss(disc_fake_x)
 
-    total_cycle_loss = calc_cycle_loss(real_x, cycled_x) + calc_cycle_loss(real_y, cycled_y)
+        total_cycle_loss = calc_cycle_loss(real_x, cycled_x) + calc_cycle_loss(real_y, cycled_y)
 
-    # Total generator loss = adversarial loss + cycle loss
-    total_gen_g_loss = gen_g_loss + total_cycle_loss + identity_loss(real_y, same_y)
-    total_gen_f_loss = gen_f_loss + total_cycle_loss + identity_loss(real_x, same_x)
+        # Total generator loss = adversarial loss + cycle loss
+        total_gen_g_loss = gen_g_loss + total_cycle_loss + identity_loss(real_y, same_y)
+        total_gen_f_loss = gen_f_loss + total_cycle_loss + identity_loss(real_x, same_x)
 
-    disc_x_loss = discriminator_loss(disc_real_x, disc_fake_x)
-    disc_y_loss = discriminator_loss(disc_real_y, disc_fake_y)
+        disc_x_loss = discriminator_loss(disc_real_x, disc_fake_x)
+        disc_y_loss = discriminator_loss(disc_real_y, disc_fake_y)
 
-  # Calculate the gradients for generator and discriminator
-  generator_g_gradients = tape.gradient(total_gen_g_loss,
-                                        generator_g.trainable_variables)
-  generator_f_gradients = tape.gradient(total_gen_f_loss,
-                                        generator_f.trainable_variables)
+    # Calculate the gradients for generator and discriminator
+    generator_g_gradients = tape.gradient(total_gen_g_loss,
+                                          generator_g.trainable_variables)
+    generator_f_gradients = tape.gradient(total_gen_f_loss,
+                                          generator_f.trainable_variables)
 
-  discriminator_x_gradients = tape.gradient(disc_x_loss,
-                                            discriminator_x.trainable_variables)
-  discriminator_y_gradients = tape.gradient(disc_y_loss,
-                                            discriminator_y.trainable_variables)
+    discriminator_x_gradients = tape.gradient(disc_x_loss,
+                                              discriminator_x.trainable_variables)
+    discriminator_y_gradients = tape.gradient(disc_y_loss,
+                                              discriminator_y.trainable_variables)
 
-  # Apply the gradients to the optimizer
-  generator_g_optimizer.apply_gradients(zip(generator_g_gradients,
-                                            generator_g.trainable_variables))
+    # Apply the gradients to the optimizer
+    generator_g_optimizer.apply_gradients(zip(generator_g_gradients,
+                                              generator_g.trainable_variables))
 
-  generator_f_optimizer.apply_gradients(zip(generator_f_gradients,
-                                            generator_f.trainable_variables))
+    generator_f_optimizer.apply_gradients(zip(generator_f_gradients,
+                                              generator_f.trainable_variables))
 
-  discriminator_x_optimizer.apply_gradients(zip(discriminator_x_gradients,
-                                                discriminator_x.trainable_variables))
+    discriminator_x_optimizer.apply_gradients(zip(discriminator_x_gradients,
+                                                  discriminator_x.trainable_variables))
 
-  discriminator_y_optimizer.apply_gradients(zip(discriminator_y_gradients,
-                                                discriminator_y.trainable_variables))
+    discriminator_y_optimizer.apply_gradients(zip(discriminator_y_gradients,
+                                                  discriminator_y.trainable_variables))
+
 
 for epoch in range(EPOCHS):
-  start = time.time()
+    start = time.time()
 
-  n = 0
-  for image_x, image_y in tf.data.Dataset.zip((train_hommes, train_femmes)):
-    train_step(image_x, image_y)
-    if n % 10 == 0:
-      print ('.', end='')
-    n += 1
+    n = 0
+    for image_x, image_y in tf.data.Dataset.zip((train_hommes, train_femmes)):
+        train_step(image_x, image_y)
+        if n % 10 == 0:
+            print('.', end='')
+        n += 1
 
-  clear_output(wait=True)
-  # Using a consistent image (sample_homme) so that the progress of the model
-  # is clearly visible.
-  generate_images(generator_g, sample_homme)
+    clear_output(wait=True)
+    # Using a consistent image (sample_homme) so that the progress of the model
+    # is clearly visible.
+    generate_images(generator_g, sample_homme)
 
-  if (epoch + 1) % 5 == 0:
-    ckpt_save_path = ckpt_manager.save()
-    print ('Saving checkpoint for epoch {} at {}'.format(epoch+1,
-                                                         ckpt_save_path))
+    if (epoch + 1) % 5 == 0:
+        ckpt_save_path = ckpt_manager.save()
+        print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
+                                                            ckpt_save_path))
 
-  print ('Time taken for epoch {} is {} sec\n'.format(epoch + 1,
-                                                      time.time()-start))
+    print('Time taken for epoch {} is {} sec\n'.format(epoch + 1,
+                                                       time.time() - start))
 
 for inp in test_hommes.take(5):
-    inp = tf.image.resize(inp, [256, 256])
+    inp = tf.image.resize(inp, [128, 128])
     generate_images(generator_g, inp)
 
 for inp in test_femmes.take(5):
-    inp = tf.image.resize(inp, [256, 256])
+    inp = tf.image.resize(inp, [128, 128])
     generate_images(generator_f, inp)
