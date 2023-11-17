@@ -77,45 +77,21 @@ def preprocess_image_test(image):
     return image
 
 
-train_hommes = (tf.data.Dataset.list_files(path_hommes + '/*.jpg')
-                .map(tf.io.read_file)
-                .map(tf.image.decode_jpeg)
-                .map(preprocess_image_train, num_parallel_calls=AUTOTUNE)
-                .take(BUFFER_SIZE)  # Take the number of items you need
-                .cache()  # Cache those items
-                .shuffle(BUFFER_SIZE)
-                .batch(BATCH_SIZE)
-                .repeat())
+train_hommes = train_hommes.cache().map(
+    preprocess_image_train, num_parallel_calls=AUTOTUNE).shuffle(
+    BUFFER_SIZE).batch(BATCH_SIZE)
 
-train_femmes = (tf.data.Dataset.list_files(path_femmes + '/*.jpg')
-                .map(tf.io.read_file)
-                .map(tf.image.decode_jpeg)
-                .map(preprocess_image_train, num_parallel_calls=AUTOTUNE)
-                .take(BUFFER_SIZE)  # Take the number of items you need
-                .cache()  # Cache those items
-                .shuffle(BUFFER_SIZE)
-                .batch(BATCH_SIZE)
-                .repeat())
+train_femmes = train_femmes.cache().map(
+    preprocess_image_train, num_parallel_calls=AUTOTUNE).shuffle(
+    BUFFER_SIZE).batch(BATCH_SIZE)
 
-test_hommes =  (tf.data.Dataset.list_files(path_test_hommes + '/*.jpg')
-                .map(tf.io.read_file)
-                .map(tf.image.decode_jpeg)
-                .map(preprocess_image_train, num_parallel_calls=AUTOTUNE)
-                .take(BUFFER_SIZE)  # Take the number of items you need
-                .cache()  # Cache those items
-                .shuffle(BUFFER_SIZE)
-                .batch(BATCH_SIZE)
-                .repeat())
+test_hommes = test_hommes.map(
+    preprocess_image_test, num_parallel_calls=AUTOTUNE).cache().shuffle(
+    BUFFER_SIZE).batch(BATCH_SIZE)
 
-test_femmes =  (tf.data.Dataset.list_files(path_test_femmes + '/*.jpg')
-                .map(tf.io.read_file)
-                .map(tf.image.decode_jpeg)
-                .map(preprocess_image_train, num_parallel_calls=AUTOTUNE)
-                .take(BUFFER_SIZE)  # Take the number of items you need
-                .cache()  # Cache those items
-                .shuffle(BUFFER_SIZE)
-                .batch(BATCH_SIZE)
-                .repeat())
+test_femmes = test_femmes.map(
+    preprocess_image_test, num_parallel_calls=AUTOTUNE).cache().shuffle(
+    BUFFER_SIZE).batch(BATCH_SIZE)
 
 sample_homme = next(iter(train_hommes))
 sample_femme = next(iter(train_femmes))
