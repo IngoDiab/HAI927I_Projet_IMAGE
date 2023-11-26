@@ -137,10 +137,8 @@ def generate_images(model, input_tensor, filename):
 # Parcourir les images et les traiter
 for i, file_path in enumerate(tf.io.gfile.glob(path_test_hommes + '/*.jpg')[:5]):
     test_input = load_and_preprocess_image(file_path)
-    test_input = tf.expand_dims(test_input, 0)  # Ajout d'une dimension batch
     generate_images(generator_g, test_input, file_path)
 
 for i, file_path in enumerate(tf.io.gfile.glob(path_test_femmes + '/*.jpg')[:5]):
     test_input = load_and_preprocess_image(file_path)
-    test_input = tf.expand_dims(test_input, 0)  # Ajout d'une dimension batch
     generate_images(generator_f, test_input, file_path)
