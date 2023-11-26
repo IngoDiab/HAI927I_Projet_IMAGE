@@ -33,10 +33,10 @@ train_femmes = tf.data.Dataset.list_files(path_femmes + '/*.jpg').map(tf.io.read
 test_hommes = tf.data.Dataset.list_files(path_test_hommes + '/*.jpg').map(tf.io.read_file).map(tf.image.decode_jpeg)
 test_femmes = tf.data.Dataset.list_files(path_test_femmes + '/*.jpg').map(tf.io.read_file).map(tf.image.decode_jpeg)
 
-BUFFER_SIZE = 1000
+BUFFER_SIZE = 1
 BATCH_SIZE = 1
-IMG_WIDTH = 128
-IMG_HEIGHT = 128
+IMG_WIDTH = 256
+IMG_HEIGHT = 256
 
 
 def random_crop(image):
@@ -54,7 +54,7 @@ def normalize(image):
 
 def random_jitter(image):
     # resizing to 286 x 286 x 3
-    image = tf.image.resize(image, [145, 145],
+    image = tf.image.resize(image, [286, 286],
                             method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
     # randomly cropping to 256 x 256 x 3
@@ -95,8 +95,8 @@ test_femmes = test_femmes.map(
 
 sample_homme = next(iter(train_hommes))
 sample_femme = next(iter(train_femmes))
-sample_homme = tf.image.resize(sample_homme, [128, 128])
-sample_femme = tf.image.resize(sample_femme, [128, 128])
+sample_homme = tf.image.resize(sample_homme, [256, 256])
+sample_femme = tf.image.resize(sample_femme, [256, 256])
 
 plt.subplot(121)
 plt.title('Homme')
@@ -137,40 +137,8 @@ Le discriminateur D_Y apprend à différencier l'image Y de l'image générée Y
 
 OUTPUT_CHANNELS = 3
 
-
-def resnet_block(input_layer, num_filters, kernel_size=3):
-    """A standard ResNet block."""
-    x = layers.Conv2D(num_filters, kernel_size, padding='same')(input_layer)
-    x = layers.BatchNormalization()(x)
-    x = tf.keras.activations.relu(x)
-
-    x = layers.Conv2D(num_filters, kernel_size, padding='same')(x)
-    x = layers.BatchNormalization()(x)
-
-    # Adapt input_layer to have the same number of filters
-    input_layer_matched = layers.Conv2D(num_filters, 1, padding='same')(input_layer)
-
-    # Adding a skip connection
-    x = layers.add([x, input_layer_matched])
-    x = tf.keras.activations.relu(x)
-    return x
-
-def resnet_generator(input_shape=(128, 128, 3), num_blocks=6):
-    inputs = layers.Input(shape=input_shape)
-    x = inputs
-
-    # Ajout des blocs ResNet
-    for _ in range(num_blocks):
-        x = resnet_block(x, 64)
-
-    # Dernière couche convolutive pour atteindre le nombre de canaux désiré
-    x = layers.Conv2D(3, (3, 3), padding='same', activation='tanh')(x)
-
-    return tf.keras.Model(inputs=inputs, outputs=x)
-
-
-generator_g = resnet_generator()
-generator_f = resnet_generator()
+generator_g = pix2pix.unet_generator(OUTPUT_CHANNELS, norm_type='instancenorm')
+generator_f = pix2pix.unet_generator(OUTPUT_CHANNELS, norm_type='instancenorm')
 
 discriminator_x = pix2pix.discriminator(norm_type='instancenorm', target=False)
 discriminator_y = pix2pix.discriminator(norm_type='instancenorm', target=False)
@@ -262,7 +230,7 @@ if ckpt_manager.latest_checkpoint:
 
 """Entrainement"""
 
-EPOCHS = 100
+EPOCHS = 1
 
 def generate_images(model, test_input):
     prediction = model(test_input)
@@ -288,8 +256,8 @@ def train_step(real_x, real_y):
     with tf.GradientTape(persistent=True) as tape:
         # Generator G translates X -> Y
         # Generator F translates Y -> X.
-        real_x = tf.image.resize(real_x, [128, 128])
-        real_y = tf.image.resize(real_y, [128, 128])
+        real_x = tf.image.resize(real_x, [256, 256])
+        real_y = tf.image.resize(real_y, [256, 256])
 
         fake_y = generator_g(real_x, training=True)
         cycled_x = generator_f(fake_y, training=True)
@@ -360,7 +328,7 @@ for epoch in range(EPOCHS):
     # is clearly visible.
     generate_images(generator_g, sample_homme)
 
-    if (epoch + 1) % 5 == 0:
+    if (epoch + 1) % 1 == 0:
         ckpt_save_path = ckpt_manager.save()
         print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
                                                             ckpt_save_path))
@@ -369,9 +337,9 @@ for epoch in range(EPOCHS):
                                                        time.time() - start))
 
 for inp in test_hommes.take(5):
-    inp = tf.image.resize(inp, [128, 128])
+    inp = tf.image.resize(inp, [256, 256])
     generate_images(generator_g, inp)
 
 for inp in test_femmes.take(5):
-    inp = tf.image.resize(inp, [128, 128])
+    inp = tf.image.resize(inp, [256, 256])
     generate_images(generator_f, inp)
