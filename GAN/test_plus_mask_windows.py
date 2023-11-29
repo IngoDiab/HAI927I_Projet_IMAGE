@@ -141,6 +141,7 @@ def generate_images(model, input_tensor):
     # Récupération du chemin d'origine et création du masque
     path = path_tensor.numpy()[0].decode('utf-8')
     original_image = cv2.imread(path)
+    original_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
     original_image = cv2.resize(original_image, (128, 128))
     mask = create_face_mask(path)
 
