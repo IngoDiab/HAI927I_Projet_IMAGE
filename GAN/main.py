@@ -79,12 +79,10 @@ def save_generated_image(canvas):
     if file_path and canvas.photo_image:
         canvas.photo_image._PhotoImage__photo.write(file_path)
 
-# GUI Layout
 gui = Tk()
 gui.geometry("900x312")
 image_path = StringVar()
 
-# Menubar setup
 menubar = Menu(gui)
 file_menu = Menu(menubar, tearoff=0)
 file_menu.add_command(label="Importer l'image", command=select_image)
