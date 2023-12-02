@@ -125,17 +125,13 @@ if ckpt_manager.latest_checkpoint:
 
 total = 0
 
-
-# Fonction pour générer les images
 def generate_images(model, input_tensor):
-    # Récupération de l'image et du chemin
     image_tensor, path_tensor = input_tensor
     image_tensor = tf.image.resize(image_tensor, [256, 256])
     prediction = model(image_tensor, training=False)[0].numpy()
     prediction = (prediction * 127.5 + 127.5).astype(np.uint8)
     prediction = cv2.resize(prediction, (128, 128))
 
-    # Récupération du chemin d'origine et création du masque
     path = path_tensor.numpy()[0].decode('utf-8')
     original_image = cv2.imread(path)
     original_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
@@ -146,8 +142,6 @@ def generate_images(model, input_tensor):
 
     save_img(f"dataset/testresults/{path.split('/')[-1]}", combined_image)
 
-
-# Parcourir les images et les traiter
 for image in test_hommes.take(5):
     generate_images(generator_g, image)
 

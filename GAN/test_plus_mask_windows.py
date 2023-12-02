@@ -128,9 +128,7 @@ total = 0
 import os
 
 
-# Fonction pour générer les images
 def generate_images(model, input_tensor):
-    # Récupération de l'image et du chemin
     image_tensor, path_tensor = input_tensor
     image_tensor = tf.image.resize(image_tensor, [256, 256])
 
@@ -138,26 +136,21 @@ def generate_images(model, input_tensor):
     prediction = (prediction * 127.5 + 127.5).astype(np.uint8)
     prediction = cv2.resize(prediction, (128, 128))
 
-    # Récupération du chemin d'origine et création du masque
     path = path_tensor.numpy()[0].decode('utf-8')
     original_image = cv2.imread(path)
     original_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
     original_image = cv2.resize(original_image, (128, 128))
     mask = create_face_mask(path)
 
-    # Combiner l'image générée avec l'originale
     combined_image = combine_images_with_mask(prediction, original_image, mask)
 
-    # Construction du chemin de sortie
     output_dir = 'dataset/testresults'
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, os.path.basename(path))
 
-    # Sauvegarder l'image combinée
     save_img(output_path, combined_image)
 
 
-# Parcourir les images et les traiter
 for image, path in test_hommes.take(5):
     generate_images(generator_g, (image, path))
 
