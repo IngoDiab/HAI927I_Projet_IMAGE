@@ -6,23 +6,46 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
+from keras.utils import save_img
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 AUTOTUNE = tf.data.AUTOTUNE
+BUFFER_SIZE = 1000
+BATCH_SIZE = 1
+IMG_WIDTH = 256
+IMG_HEIGHT = 256
+LAMBDA = 10
 
 # Chemins des dossiers de données
 path_test_hommes = 'dataset/testhommes'
 path_test_femmes = 'dataset/testfemmes'
 
+test_hommes = tf.data.Dataset.list_files(path_test_hommes + '/*.jpg')
+test_femmes = tf.data.Dataset.list_files(path_test_femmes + '/*.jpg')
+
 
 # Chargement et prétraitement des données
-def load_and_preprocess_image(path):
-    image = tf.io.read_file(path)
-    image = tf.image.decode_jpeg(image)
-    image = tf.image.resize(image, [128, 128])
+def normalize(image):
+    image = tf.cast(image, tf.float32)
     image = (image / 127.5) - 1
     return image
+
+
+def preprocess_image_test(path):
+    image = tf.io.read_file(path)
+    image = tf.image.decode_jpeg(image)
+    image = normalize(image)
+    return image, path
+
+
+test_hommes = test_hommes.map(
+    preprocess_image_test, num_parallel_calls=AUTOTUNE).cache().shuffle(
+    BUFFER_SIZE).batch(BATCH_SIZE)
+
+test_femmes = test_femmes.map(
+    preprocess_image_test, num_parallel_calls=AUTOTUNE).cache().shuffle(
+    BUFFER_SIZE).batch(BATCH_SIZE)
 
 
 # Création du masque
@@ -54,14 +77,11 @@ discriminator_y = pix2pix.discriminator(norm_type='instancenorm', target=False)
 
 loss_obj = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
-LAMBDA = 10
+
 def discriminator_loss(real, generated):
     real_loss = loss_obj(tf.ones_like(real), real)
-
     generated_loss = loss_obj(tf.zeros_like(generated), generated)
-
     total_disc_loss = real_loss + generated_loss
-
     return total_disc_loss * 0.5
 
 
@@ -71,7 +91,6 @@ def generator_loss(generated):
 
 def calc_cycle_loss(real_image, cycled_image):
     loss1 = tf.reduce_mean(tf.abs(real_image - cycled_image))
-
     return LAMBDA * loss1
 
 
@@ -85,7 +104,6 @@ generator_f_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
 
 discriminator_x_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
 discriminator_y_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
-
 
 checkpoint_path = "./checkpoints/train"
 
@@ -105,40 +123,33 @@ if ckpt_manager.latest_checkpoint:
     ckpt.restore(ckpt_manager.latest_checkpoint)
     print('Latest checkpoint restored!!')
 
+total = 0
+
+
 # Fonction pour générer les images
-def generate_images(model, input_tensor, filename):
-    # Générer l'image
-    prediction = model(input_tensor, training=False)[0].numpy()
+def generate_images(model, input_tensor):
+    # Récupération de l'image et du chemin
+    image_tensor, path_tensor = input_tensor
+    image_tensor = tf.image.resize(image_tensor, [256, 256])
+    prediction = model(image_tensor, training=False)[0].numpy()
     prediction = (prediction * 127.5 + 127.5).astype(np.uint8)
+    prediction = cv2.resize(prediction, (128, 128))
 
-    # Charger l'image originale et créer le masque
-    original_image = cv2.imread(filename)
-    original_image = cv2.resize(original_image, (256, 256))
-    mask = create_face_mask(filename)
+    # Récupération du chemin d'origine et création du masque
+    path = path_tensor.numpy()[0].decode('utf-8')
+    original_image = cv2.imread(path)
+    original_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
+    original_image = cv2.resize(original_image, (128, 128))
+    mask = create_face_mask(path)
 
-    # Combiner l'image générée avec l'originale
     combined_image = combine_images_with_mask(prediction, original_image, mask)
 
-    # Afficher les images
-    plt.figure(figsize=(12, 6))
-    plt.subplot(1, 2, 1)
-    plt.imshow(original_image)
-    plt.title("Original Image")
-    plt.axis("off")
-
-    plt.subplot(1, 2, 2)
-    plt.imshow(combined_image)
-    plt.title("Combined Image")
-    plt.axis("off")
-
-    plt.show()
+    save_img(f"dataset/testresults/{path.split('/')[-1]}", combined_image)
 
 
 # Parcourir les images et les traiter
-for i, file_path in enumerate(tf.io.gfile.glob(path_test_hommes + '/*.jpg')[:5]):
-    test_input = load_and_preprocess_image(file_path)
-    generate_images(generator_g, test_input, file_path)
+for image in test_hommes.take(5):
+    generate_images(generator_g, image)
 
-for i, file_path in enumerate(tf.io.gfile.glob(path_test_femmes + '/*.jpg')[:5]):
-    test_input = load_and_preprocess_image(file_path)
-    generate_images(generator_f, test_input, file_path)
+for image in test_femmes.take(5):
+    generate_images(generator_f, image)

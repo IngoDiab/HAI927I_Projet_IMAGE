@@ -13,7 +13,8 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 import tensorflow as tf
 from tensorflow_examples.models.pix2pix import pix2pix
-from keras import layers
+import os
+from keras.preprocessing.image import save_img
 
 import time
 import matplotlib.pyplot as plt
@@ -33,7 +34,7 @@ train_femmes = tf.data.Dataset.list_files(path_femmes + '/*.jpg').map(tf.io.read
 test_hommes = tf.data.Dataset.list_files(path_test_hommes + '/*.jpg').map(tf.io.read_file).map(tf.image.decode_jpeg)
 test_femmes = tf.data.Dataset.list_files(path_test_femmes + '/*.jpg').map(tf.io.read_file).map(tf.image.decode_jpeg)
 
-BUFFER_SIZE = 1
+BUFFER_SIZE = 1000
 BATCH_SIZE = 1
 IMG_WIDTH = 256
 IMG_HEIGHT = 256
@@ -137,8 +138,8 @@ Le discriminateur D_Y apprend à différencier l'image Y de l'image générée Y
 
 OUTPUT_CHANNELS = 3
 
-generator_g = pix2pix.unet_generator(OUTPUT_CHANNELS, norm_type='instancenorm')
-generator_f = pix2pix.unet_generator(OUTPUT_CHANNELS, norm_type='instancenorm')
+generator_g = pix2pix.unet_generator(OUTPUT_CHANNELS, norm_type='instancenorm') #remplacer par resnet
+generator_f = pix2pix.unet_generator(OUTPUT_CHANNELS, norm_type='instancenorm') #remplacer par resnet
 
 discriminator_x = pix2pix.discriminator(norm_type='instancenorm', target=False)
 discriminator_y = pix2pix.discriminator(norm_type='instancenorm', target=False)
@@ -230,9 +231,9 @@ if ckpt_manager.latest_checkpoint:
 
 """Entrainement"""
 
-EPOCHS = 1
+EPOCHS = 50
 
-def generate_images(model, test_input):
+def generate_images(model, test_input, epoch, save_dir='dataset/intermediaire'):
     prediction = model(test_input)
 
     plt.figure(figsize=(12, 12))
@@ -243,9 +244,19 @@ def generate_images(model, test_input):
     for i in range(2):
         plt.subplot(1, 2, i + 1)
         plt.title(title[i])
-        # getting the pixel values between [0, 1] to plot it.
         plt.imshow(display_list[i] * 0.5 + 0.5)
         plt.axis('off')
+
+    # Enregistrement de l'image
+    file_name = f"epoch_{(epoch+1)+150}.png"
+    file_path = os.path.join(save_dir, file_name)
+
+    # Assurez-vous que le répertoire existe
+    os.makedirs(save_dir, exist_ok=True)
+
+    # Sauvegarde de l'image prédite
+    save_img(file_path, prediction[0] * 0.5 + 0.5)
+
     plt.show()
 
 
@@ -256,8 +267,6 @@ def train_step(real_x, real_y):
     with tf.GradientTape(persistent=True) as tape:
         # Generator G translates X -> Y
         # Generator F translates Y -> X.
-        real_x = tf.image.resize(real_x, [256, 256])
-        real_y = tf.image.resize(real_y, [256, 256])
 
         fake_y = generator_g(real_x, training=True)
         cycled_x = generator_f(fake_y, training=True)
@@ -326,20 +335,12 @@ for epoch in range(EPOCHS):
     clear_output(wait=True)
     # Using a consistent image (sample_homme) so that the progress of the model
     # is clearly visible.
-    generate_images(generator_g, sample_homme)
+    generate_images(generator_g, sample_homme, epoch)
 
-    if (epoch + 1) % 1 == 0:
+    if (epoch + 1) % 5 == 0:
         ckpt_save_path = ckpt_manager.save()
         print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
                                                             ckpt_save_path))
 
     print('Time taken for epoch {} is {} sec\n'.format(epoch + 1,
                                                        time.time() - start))
-
-for inp in test_hommes.take(5):
-    inp = tf.image.resize(inp, [256, 256])
-    generate_images(generator_g, inp)
-
-for inp in test_femmes.take(5):
-    inp = tf.image.resize(inp, [256, 256])
-    generate_images(generator_f, inp)
