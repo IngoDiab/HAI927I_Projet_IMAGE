@@ -26,40 +26,38 @@ class Features(Enum):
 ########################## FUNCTIONS ##########################
 
 def ConvertFeatureToIndices(feature):
-    match feature:
+    if(feature == Features.LEFT_EYE):
+        return list(range(36, 42))
 
-        case Features.LEFT_EYE:
-            return list(range(36, 42))
+    elif(feature == Features.RIGHT_EYE):
+        return list(range(42, 48))
 
-        case Features.RIGHT_EYE:
-            return list(range(42, 48))
+    elif(feature == Features.EDGE_NOSE):
+        return list(range(27, 31))
 
-        case Features.EDGE_NOSE:
-            return list(range(27, 31))
+    elif(feature == Features.LOWER_NOSE):
+        return list(range(31, 36))
 
-        case Features.LOWER_NOSE:
-            return list(range(31, 36))
+    elif(feature == Features.NOSE):
+        return list(range(27, 36))
 
-        case Features.NOSE:
-            return list(range(27, 36))
+    elif(feature == Features.JAW):
+        return list(range(0, 17))
 
-        case Features.JAW:
-            return list(range(0, 17))
+    elif(feature == Features.MOUTH):
+        return list(range(48, 68))
 
-        case Features.MOUTH:
-            return list(range(48, 68))
+    elif(feature == Features.LEFT_EYEBROW):
+        return list(range(17, 22))
 
-        case Features.LEFT_EYEBROW:
-            return list(range(17, 22))
+    elif(feature == Features.RIGHT_EYEBROW):
+        return list(range(22, 27))
 
-        case Features.RIGHT_EYEBROW:
-            return list(range(22, 27))
+    elif(feature == Features.BEARD):
+        return [49] + list(list(range(3, 13)) + list(range(54, 59)))
 
-        case Features.BEARD:
-            return [49] + list(list(range(3, 13)) + list(range(54, 59)))
-
-        case _:
-            return list(range(68))
+    else:
+        return list(range(68))
 
 def length(vector):
   return math.sqrt(vector[0]**2 + vector[1]**2)
@@ -105,7 +103,7 @@ def ImageToFeatureImage(position, minBBY, minBBX):
 def DetectionFace(image):
     _grayImg = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     _detector = dlib.get_frontal_face_detector()
-    _predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
+    _predictor = dlib.shape_predictor('Dlib/shape_predictor_68_face_landmarks.dat')
     _allFacesRecognized = _detector(_grayImg)
 
     if _allFacesRecognized:
@@ -395,16 +393,12 @@ def SwapBeard(imageSource, imageDest, debug = False):
     # imPlot(_imageTriangleDest)
     # imPlot(_maskD)
 
-    print(M)
-    imPlot(warped_triangle)
-
-    imPlot(imagePasteOn)
   return imagePasteOn
 
 ########################## MAIN ##########################
 
-imgMan = LoadImage("man.jpg")
-imgWoman = LoadImage("woman.jpg")
+imgMan = LoadImage("Images/man.jpg")
+imgWoman = LoadImage("Images/woman.jpg")
 
 #imgSwapped = imgMan.copy()
 
