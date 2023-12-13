@@ -70,8 +70,8 @@ def main():
     app = PhotoSorterApp(
         root,
         image_folder=r"C:\Users\docto\PycharmProjects\HAI927I_Projet_IMAGE\GAN\dataset\100k",
-        men_folder=r"C:\Users\docto\PycharmProjects\HAI927I_Projet_IMAGE\GAN\dataset\hommes",
-        women_folder=r"C:\Users\docto\PycharmProjects\HAI927I_Projet_IMAGE\GAN\dataset\femmes"
+        men_folder=r"C:\Users\docto\PycharmProjects\HAI927I_Projet_IMAGE\GAN\dataset\testhommes",
+        women_folder=r"C:\Users\docto\PycharmProjects\HAI927I_Projet_IMAGE\GAN\dataset\testfemmes"
     )
     root.mainloop()
 

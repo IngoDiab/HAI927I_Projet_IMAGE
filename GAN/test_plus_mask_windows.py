@@ -144,16 +144,16 @@ def generate_images(model, input_tensor):
 
     combined_image = combine_images_with_mask(prediction, original_image, mask)
 
-    output_dir = 'dataset/testresults'
+    output_dir = 'dataset/testresultsfemmestohommes'
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, os.path.basename(path))
 
     save_img(output_path, combined_image)
 
 
-for image, path in test_hommes.take(5):
-    generate_images(generator_g, (image, path))
+#for image, path in test_hommes.take(100):
+#    generate_images(generator_g, (image, path))
 
-for image, path in test_femmes.take(5):
+for image, path in test_femmes.take(100):
     generate_images(generator_f, (image, path))
 
